@@ -334,36 +334,18 @@ def fix_image_orientation(input_file):
     """EXIFのOrientationタグに従って画像を回転補正し、補正済みの一時ファイルパスを返す。
     補正不要な場合はNoneを返す（元ファイルをそのまま使う）。"""
     try:
-        from PIL import Image, ExifTags
-        img = Image.open(str(input_file))
-        exif = img._getexif()
-        if exif is None:
-            return None
-        orientation_key = next(
-            (k for k, v in ExifTags.TAGS.items() if v == 'Orientation'), None
-        )
-        if orientation_key is None or orientation_key not in exif:
-            return None
-        orientation = exif[orientation_key]
-        # 1=正常、補正不要
-        if orientation == 1:
-            return None
-        rotation_map = {3: 180, 6: 270, 8: 90}
-        flip_map = {2: (True, False), 4: (False, True), 5: (True, 90), 7: (False, 270)}
-        if orientation in rotation_map:
-            img = img.rotate(rotation_map[orientation], expand=True)
-        elif orientation in flip_map:
-            h, angle = flip_map[orientation]
-            img = img.transpose(Image.FLIP_LEFT_RIGHT if h else Image.FLIP_TOP_BOTTOM)
-            if isinstance(angle, int):
-                img = img.rotate(angle, expand=True)
-        else:
-            return None
+        from PIL import Image, ImageOps
         import tempfile
+        img = Image.open(str(input_file))
+        # ImageOps.exif_transposeが最も確実（Pillow 6.0.0+）
+        img_fixed = ImageOps.exif_transpose(img)
+        # 変換が発生したか確認（サイズが変わったかどうかで判断）
+        if img_fixed is img:
+            return None  # 変換なし
         suffix = Path(input_file).suffix or '.jpg'
         tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
         tmp.close()
-        img.save(tmp.name, quality=95)
+        img_fixed.save(tmp.name, quality=95)
         return Path(tmp.name)
     except Exception:
         return None
@@ -376,8 +358,39 @@ def run_ocr_single(input_file, output_dir, job_id):
 
     # EXIF回転補正（iPhoneなどで必要）
     corrected_file = fix_image_orientation(input_file)
+    if corrected_file is None:
+        # exif_transposeが効かない場合、EXIFを直接読んで強制補正
+        try:
+            from PIL import Image as _PIL_Image
+            import tempfile as _tf
+            _img = _PIL_Image.open(str(input_file))
+            _exif = _img._getexif() or {}
+            _orient = _exif.get(274, 1)  # 274 = Orientation tag
+            _rotation_map = {3: 180, 6: 270, 8: 90}
+            if _orient in _rotation_map:
+                _img_rot = _img.rotate(_rotation_map[_orient], expand=True)
+                _suffix = Path(input_file).suffix or '.jpg'
+                _tmp = _tf.NamedTemporaryFile(suffix=_suffix, delete=False)
+                _tmp.close()
+                _img_rot.save(_tmp.name, quality=95)
+                corrected_file = Path(_tmp.name)
+        except Exception:
+            pass
     ocr_source = corrected_file if corrected_file else input_file
 
+    # NDLOCRは拡張子が小文字でないと画像を認識しない（JPG→jpg等）
+    if ocr_source.suffix != ocr_source.suffix.lower():
+        import tempfile as _tf2
+        _suffix_lower = ocr_source.suffix.lower()
+        _tmp2 = _tf2.NamedTemporaryFile(suffix=_suffix_lower, delete=False)
+        _tmp2.close()
+        import shutil as _shutil2
+        _shutil2.copy2(str(ocr_source), _tmp2.name)
+        # 古いcorrected_fileがあれば削除
+        if corrected_file and corrected_file != ocr_source and corrected_file.exists():
+            corrected_file.unlink(missing_ok=True)
+        corrected_file = Path(_tmp2.name)
+        ocr_source = corrected_file
     # NDLOCRは出力先フォルダが存在しないと失敗するため明示的に作成
     tmp_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -393,11 +406,14 @@ def run_ocr_single(input_file, output_dir, job_id):
         result = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=120)
         if result.returncode != 0:
             return False, result.stderr[:300]
+        # NDLOCRはエラーをstdoutに出してreturncodeを0にする場合がある
+        if 'Images are not found' in result.stdout:
+            return False, f'EXIF補正失敗またはNDLOCRが画像を認識できません: {result.stdout[:200]}'
 
         # tmp_dirに出力されたJSONを探す
         json_files = [f for f in tmp_dir.glob("*.json")]
         if not json_files:
-            return False, "JSONが出力されませんでした"
+            return False, f"JSONが出力されませんでした / returncode={result.returncode} / stdout={result.stdout[:200]} / stderr={result.stderr[:200]}"
 
         # 画像のstemをそのまま使ったファイル名でoutput_dirに保存
         target_stem = input_file.stem
