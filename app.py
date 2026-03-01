@@ -330,16 +330,60 @@ def serve_image(project_name, filename):
     return "Not found", 404
 
 
+def fix_image_orientation(input_file):
+    """EXIFのOrientationタグに従って画像を回転補正し、補正済みの一時ファイルパスを返す。
+    補正不要な場合はNoneを返す（元ファイルをそのまま使う）。"""
+    try:
+        from PIL import Image, ExifTags
+        img = Image.open(str(input_file))
+        exif = img._getexif()
+        if exif is None:
+            return None
+        orientation_key = next(
+            (k for k, v in ExifTags.TAGS.items() if v == 'Orientation'), None
+        )
+        if orientation_key is None or orientation_key not in exif:
+            return None
+        orientation = exif[orientation_key]
+        # 1=正常、補正不要
+        if orientation == 1:
+            return None
+        rotation_map = {3: 180, 6: 270, 8: 90}
+        flip_map = {2: (True, False), 4: (False, True), 5: (True, 90), 7: (False, 270)}
+        if orientation in rotation_map:
+            img = img.rotate(rotation_map[orientation], expand=True)
+        elif orientation in flip_map:
+            h, angle = flip_map[orientation]
+            img = img.transpose(Image.FLIP_LEFT_RIGHT if h else Image.FLIP_TOP_BOTTOM)
+            if isinstance(angle, int):
+                img = img.rotate(angle, expand=True)
+        else:
+            return None
+        import tempfile
+        suffix = Path(input_file).suffix or '.jpg'
+        tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+        tmp.close()
+        img.save(tmp.name, quality=95)
+        return Path(tmp.name)
+    except Exception:
+        return None
+
+
 def run_ocr_single(input_file, output_dir, job_id):
     """1枚OCR実行→即座に画像名でリネーム保存"""
     import tempfile, glob
     tmp_dir = Path(tempfile.mkdtemp())
+
+    # EXIF回転補正（iPhoneなどで必要）
+    corrected_file = fix_image_orientation(input_file)
+    ocr_source = corrected_file if corrected_file else input_file
+
     try:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(NDLOCR_SRC)
         cmd = [
             "python3", str(NDLOCR_SRC / "ocr.py"),
-            "--sourceimg", str(input_file),
+            "--sourceimg", str(ocr_source),
             "--output", str(tmp_dir),
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=120)
@@ -366,6 +410,9 @@ def run_ocr_single(input_file, output_dir, job_id):
     finally:
         import shutil
         shutil.rmtree(str(tmp_dir), ignore_errors=True)
+        # EXIF補正で作成した一時ファイルを削除
+        if corrected_file and corrected_file.exists():
+            corrected_file.unlink(missing_ok=True)
 
 
 @app.route("/api/projects/<project_name>/ocr/<filename>", methods=["POST"])
