@@ -3,34 +3,23 @@
 # このファイルをデスクトップに置いてダブルクリックで起動
 
 APP_DIR="$HOME/ocr-project-manager"
-VENV="$APP_DIR/venv"
-PYTHON="$VENV/bin/python3"
-PIP="$VENV/bin/pip"
-
-# venvがなければ作成
-if [ ! -f "$PYTHON" ]; then
-    echo "Python仮想環境を作成中..."
-    python3 -m venv "$VENV"
-    if [ $? -ne 0 ]; then
-        echo "エラー: venvの作成に失敗しました"
-        read -p "Enterで閉じる..."
-        exit 1
-    fi
-fi
 
 # Flaskがなければインストール
-if ! "$PYTHON" -c "import flask" 2>/dev/null; then
+if ! python3 -c "import flask" 2>/dev/null; then
     echo "Flaskをインストール中..."
-    "$PIP" install flask --quiet
-    if [ $? -ne 0 ]; then
-        echo "エラー: Flaskのインストールに失敗しました"
-        read -p "Enterで閉じる..."
-        exit 1
-    fi
-    echo "Flaskをインストールしました"
+    pip3 install flask
 fi
 
-# アプリ起動
-echo "OCR Project Manager を起動します..."
+# ランチャー起動
+echo "OCR Project Manager ランチャーを起動します..."
 cd "$APP_DIR"
-exec "$PYTHON" start.py < /dev/null
+python3 start.py &
+LAUNCHER_PID=$!
+
+# ランチャーの終了を待つ
+wait $LAUNCHER_PID
+
+# アプリが起動しているのでウィンドウを維持
+echo ""
+echo "アプリが起動しました。このウィンドウは閉じても構いません。"
+read -p "Enterで閉じる..."
