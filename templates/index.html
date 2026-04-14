@@ -1516,11 +1516,10 @@ function renderProjectView() {
           </div>
         </div>
       </div>
-      <div class="resizer resizer-horizontal" id="resizerBottom" onmousedown="startResize(event,'bottom')" style="display:none"></div>
-      <div class="resizer resizer-horizontal" id="resizerBottom"
-           style="display:none"
-           onmousedown="startResizeBottom(event)"></div>
       <div class="text-preview-panel collapsed" id="textPreviewPanel">
+        <div class="resizer-horizontal" id="resizerBottom"
+             style="display:none"
+             onmousedown="startResizeBottom(event)"></div>
         <div class="text-preview-header" onclick="toggleTextPreview()">
           <span class="text-preview-title" id="textPreviewTitle">📋 Text Preview</span>
           <button class="btn" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();reloadTextPreview()" id="reloadPreviewBtn" title="再読込み">↺</button>
@@ -1873,9 +1872,8 @@ function setActiveBlock(blockId) {
   // SVGオーバーレイのアクティブ枠を更新
   document.querySelectorAll('.overlay-rect.active-rect').forEach(r => {
     r.classList.remove('active-rect');
-    const isNormal = !r.classList.contains('warn') && !r.classList.contains('checked');
-    r.setAttribute('fill-opacity', isNormal ? 0 : state.overlayOpacity);
-    r.setAttribute('stroke-opacity', isNormal ? 0 : 1);
+    r.setAttribute('fill-opacity', r.classList.contains('normal') ? 0 : state.overlayOpacity);
+    r.setAttribute('stroke-opacity', r.classList.contains('normal') ? 0 : 1);
   });
   const rect = document.getElementById(`rect-${blockId}`);
   if (rect) {
@@ -1942,10 +1940,6 @@ function renumberBlocks() {
     // overlayのキーを新IDに移し替え
     if (state.overlay[oldId]) {
       newOverlay[String(newId)] = state.overlay[oldId];
-    }
-    // activeBlockIdも新IDに追従させる
-    if (state.activeBlockId === block.id) {
-      state.activeBlockId = newId;
     }
     block.id = newId;
   });
@@ -2768,18 +2762,18 @@ document.getElementById('newProjectName').addEventListener('keydown', e => {
 // ── Text Preview Panel Resize ────────────────────────────────────────────────
 function startResizeBottom(e) {
   e.preventDefault();
+  e.stopPropagation(); // toggleTextPreviewと干渉しないように
   const resizer = document.getElementById('resizerBottom');
   const panel = document.getElementById('textPreviewPanel');
-  const contentArea = panel.parentElement;
   const startY = e.clientY;
   const startH = panel.offsetHeight;
-  const totalH = contentArea.offsetHeight;
+  const maxH = window.innerHeight * 0.8;
 
   resizer.classList.add('dragging');
 
   function onMove(e) {
     const delta = startY - e.clientY;  // 上にドラッグ = パネル拡大
-    const newH = Math.min(Math.max(80, startH + delta), totalH - 100);
+    const newH = Math.min(Math.max(80, startH + delta), maxH);
     panel.style.height = newH + 'px';
     panel.style.minHeight = newH + 'px';
     panel.style.transition = 'none';
