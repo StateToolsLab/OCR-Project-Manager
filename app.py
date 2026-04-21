@@ -2,6 +2,7 @@
 """OCR Project Manager - Local Flask App"""
 
 import os
+import sys
 import json
 import subprocess
 import threading
@@ -115,8 +116,12 @@ def list_projects():
     projects = []
     if PROJECTS_DIR.exists():
         for p in sorted(PROJECTS_DIR.iterdir()):
-            if p.is_dir():
-                meta = load_project_meta(p)
+            if not p.is_dir():
+                continue
+            if not (p / "meta.json").exists():
+                continue
+            meta = load_project_meta(p)
+            if True:
                 input_dir = p / "input"
                 output_dir = p / "output"
                 input_count = len(list(input_dir.glob("*.png")) + list(input_dir.glob("*.jpg")) + list(input_dir.glob("*.jpeg"))) if input_dir.exists() else 0
@@ -143,6 +148,7 @@ def list_projects():
                     "checked": checked,
                     "total_blocks": total_blocks,
                     "page_order": meta.get("page_order", []),
+                    "writing_direction": meta.get("writing_direction", "vertical"),
                 })
     return jsonify(projects)
 
@@ -167,6 +173,7 @@ def create_project():
         "description": data.get("description", ""),
         "page_order": [],
         "confidence_threshold": 0.9,
+        "writing_direction": data.get("writing_direction", "vertical"),
     }
     save_project_meta(project_path, meta)
     return jsonify({"success": True, "name": name})
@@ -181,10 +188,13 @@ def edit_project(project_name):
     data = request.json
     new_name = data.get("name", "").strip()
     new_desc = data.get("description", "")
+    new_writing_direction = data.get("writing_direction", None)
 
     # Update description
     meta = load_project_meta(project_path)
     meta["description"] = new_desc
+    if new_writing_direction is not None:
+        meta["writing_direction"] = new_writing_direction
 
     # Rename folder if name changed
     if new_name and new_name != project_name:
@@ -402,21 +412,37 @@ def run_ocr_single(input_file, output_dir, job_id):
         env = os.environ.copy()
         env["PYTHONPATH"] = str(NDLOCR_SRC)
         cmd = [
-            "python3", str(NDLOCR_SRC / "ocr.py"),
+            sys.executable, str(NDLOCR_SRC / "ocr.py"),
             "--sourceimg", str(ocr_source),
             "--output", str(tmp_dir),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=120)
-        if result.returncode != 0:
-            return False, result.stderr[:300]
+        with open(os.devnull, 'r') as devnull_r, open(os.devnull, 'w') as devnull_w:
+            proc = subprocess.Popen(
+                cmd,
+                stdin=devnull_r,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                close_fds=True,
+                env=env,
+            )
+            try:
+                stdout_data, stderr_data = proc.communicate(timeout=120)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+                return False, "OCRタイムアウト"
+        stdout_str = stdout_data.decode('utf-8', errors='replace')
+        stderr_str = stderr_data.decode('utf-8', errors='replace')
+        if proc.returncode != 0:
+            return False, stderr_str[:300]
         # NDLOCRはエラーをstdoutに出してreturncodeを0にする場合がある
-        if 'Images are not found' in result.stdout:
-            return False, f'EXIF補正失敗またはNDLOCRが画像を認識できません: {result.stdout[:200]}'
+        if 'Images are not found' in stdout_str:
+            return False, f'EXIF補正失敗またはNDLOCRが画像を認識できません: {stdout_str[:200]}'
 
         # tmp_dirに出力されたJSONを探す
         json_files = [f for f in tmp_dir.glob("*.json")]
         if not json_files:
-            return False, f"JSONが出力されませんでした / returncode={result.returncode} / stdout={result.stdout[:200]} / stderr={result.stderr[:200]}"
+            return False, f"JSONが出力されませんでした / returncode={proc.returncode} / stdout={stdout_str[:200]} / stderr={stderr_str[:200]}"
 
         # 画像のstemをそのまま使ったファイル名でoutput_dirに保存
         target_stem = input_file.stem

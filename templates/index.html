@@ -978,6 +978,14 @@
       <label class="form-label" id="labelEditDesc">説明</label>
       <input class="form-input" id="editProjectDesc" placeholder="説明（任意）" />
     </div>
+    <div class="form-group">
+      <label class="form-label" id="labelEditWritingDir">筆記方向</label>
+      <select class="form-input" id="editProjectWritingDir">
+        <option value="vertical" id="optEditVertical">縦書き</option>
+        <option value="horizontal" id="optEditHorizontal">横書き</option>
+        <option value="mixed" id="optEditMixed">混在</option>
+      </select>
+    </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('editProjectModal')">キャンセル</button>
       <button class="btn btn-primary" onclick="saveEditProject()">保存</button>
@@ -996,6 +1004,14 @@
     <div class="form-group">
       <label class="form-label" id="labelNewDesc">説明（任意）</label>
       <input class="form-input" id="newProjectDesc" placeholder="テキスト等" />
+    </div>
+    <div class="form-group">
+      <label class="form-label" id="labelNewWritingDir">筆記方向</label>
+      <select class="form-input" id="newProjectWritingDir">
+        <option value="vertical" id="optNewVertical">縦書き</option>
+        <option value="horizontal" id="optNewHorizontal">横書き</option>
+        <option value="mixed" id="optNewMixed">混在</option>
+      </select>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('newProjectModal')">キャンセル</button>
@@ -1225,7 +1241,11 @@ const i18n = {
     textInput: 'テキストを入力',
     textLabel: 'テキスト',
     textPlaceholder: '認識できなかったテキストを入力',
+    writingDirLabel: '筆記方向',
     writingDir: '縦書き',
+    writingDirVertical: '縦書き',
+    writingDirHorizontal: '横書き',
+    writingDirMixed: '混在',
     vertical2: '縦書き',
     horizontal: '横書き',
     exportTitle: '統合出力',
@@ -1302,7 +1322,11 @@ const i18n = {
     textInput: 'Enter Text',
     textLabel: 'Text',
     textPlaceholder: 'Enter text for this region',
+    writingDirLabel: 'Writing Direction',
     writingDir: 'Writing Direction',
+    writingDirVertical: 'Vertical',
+    writingDirHorizontal: 'Horizontal',
+    writingDirMixed: 'Mixed',
     vertical2: 'Vertical',
     horizontal: 'Horizontal',
     exportTitle: 'Export',
@@ -1382,6 +1406,20 @@ function updateModals() {
   set('labelNewDesc', 'descOptional');
   set('labelManualText', 'textLabel');
   set('labelWritingDir', 'writingDir');
+  set('labelNewWritingDir', 'writingDirLabel');
+  set('labelEditWritingDir', 'writingDirLabel');
+  const optNV = document.getElementById('optNewVertical');
+  if (optNV) optNV.textContent = t('writingDirVertical');
+  const optNH = document.getElementById('optNewHorizontal');
+  if (optNH) optNH.textContent = t('writingDirHorizontal');
+  const optNM = document.getElementById('optNewMixed');
+  if (optNM) optNM.textContent = t('writingDirMixed');
+  const optEV = document.getElementById('optEditVertical');
+  if (optEV) optEV.textContent = t('writingDirVertical');
+  const optEH = document.getElementById('optEditHorizontal');
+  if (optEH) optEH.textContent = t('writingDirHorizontal');
+  const optEM = document.getElementById('optEditMixed');
+  if (optEM) optEM.textContent = t('writingDirMixed');
   set('labelExportFormat', 'exportFormat');
   const optV = document.getElementById('optVertical');
   if (optV) optV.textContent = t('vertical2');
@@ -1516,11 +1554,10 @@ function renderProjectView() {
           </div>
         </div>
       </div>
-      <div class="resizer resizer-horizontal" id="resizerBottom" onmousedown="startResize(event,'bottom')" style="display:none"></div>
-      <div class="resizer resizer-horizontal" id="resizerBottom"
-           style="display:none"
-           onmousedown="startResizeBottom(event)"></div>
       <div class="text-preview-panel collapsed" id="textPreviewPanel">
+        <div class="resizer-horizontal" id="resizerBottom"
+             style="display:none"
+             onmousedown="startResizeBottom(event)"></div>
         <div class="text-preview-header" onclick="toggleTextPreview()">
           <span class="text-preview-title" id="textPreviewTitle">📋 Text Preview</span>
           <button class="btn" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();reloadTextPreview()" id="reloadPreviewBtn" title="再読込み">↺</button>
@@ -1873,9 +1910,8 @@ function setActiveBlock(blockId) {
   // SVGオーバーレイのアクティブ枠を更新
   document.querySelectorAll('.overlay-rect.active-rect').forEach(r => {
     r.classList.remove('active-rect');
-    const isNormal = !r.classList.contains('warn') && !r.classList.contains('checked');
-    r.setAttribute('fill-opacity', isNormal ? 0 : state.overlayOpacity);
-    r.setAttribute('stroke-opacity', isNormal ? 0 : 1);
+    r.setAttribute('fill-opacity', r.classList.contains('normal') ? 0 : state.overlayOpacity);
+    r.setAttribute('stroke-opacity', r.classList.contains('normal') ? 0 : 1);
   });
   const rect = document.getElementById(`rect-${blockId}`);
   if (rect) {
@@ -1942,10 +1978,6 @@ function renumberBlocks() {
     // overlayのキーを新IDに移し替え
     if (state.overlay[oldId]) {
       newOverlay[String(newId)] = state.overlay[oldId];
-    }
-    // activeBlockIdも新IDに追従させる
-    if (state.activeBlockId === block.id) {
-      state.activeBlockId = newId;
     }
     block.id = newId;
   });
@@ -2501,6 +2533,7 @@ function openEditProjectModal() {
   const proj = state.projects.find(p => p.name === state.currentProject);
   document.getElementById('editProjectName').value = proj?.name || '';
   document.getElementById('editProjectDesc').value = proj?.description || '';
+  document.getElementById('editProjectWritingDir').value = proj?.writing_direction || 'vertical';
   document.getElementById('editProjectModal').classList.add('open');
   setTimeout(() => document.getElementById('editProjectName').focus(), 100);
 }
@@ -2510,10 +2543,11 @@ async function saveEditProject() {
   const newDesc = document.getElementById('editProjectDesc').value.trim();
   if (!newName) return;
 
+  const writingDir = document.getElementById('editProjectWritingDir').value;
   const res = await fetch(`/api/projects/${encodeURIComponent(state.currentProject)}/edit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: newName, description: newDesc }),
+    body: JSON.stringify({ name: newName, description: newDesc, writing_direction: writingDir }),
   });
   const data = await res.json();
   if (data.error) { toast(data.error, 'error'); return; }
@@ -2738,10 +2772,11 @@ async function createProject() {
   const name = document.getElementById('newProjectName').value.trim();
   if (!name) return;
   const desc = document.getElementById('newProjectDesc').value.trim();
+  const writingDir = document.getElementById('newProjectWritingDir').value;
   const res = await fetch('/api/projects', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, description: desc }),
+    body: JSON.stringify({ name, description: desc, writing_direction: writingDir }),
   });
   const data = await res.json();
   if (data.error) { toast(data.error, 'error'); return; }
@@ -2768,18 +2803,18 @@ document.getElementById('newProjectName').addEventListener('keydown', e => {
 // ── Text Preview Panel Resize ────────────────────────────────────────────────
 function startResizeBottom(e) {
   e.preventDefault();
+  e.stopPropagation(); // toggleTextPreviewと干渉しないように
   const resizer = document.getElementById('resizerBottom');
   const panel = document.getElementById('textPreviewPanel');
-  const contentArea = panel.parentElement;
   const startY = e.clientY;
   const startH = panel.offsetHeight;
-  const totalH = contentArea.offsetHeight;
+  const maxH = window.innerHeight * 0.8;
 
   resizer.classList.add('dragging');
 
   function onMove(e) {
     const delta = startY - e.clientY;  // 上にドラッグ = パネル拡大
-    const newH = Math.min(Math.max(80, startH + delta), totalH - 100);
+    const newH = Math.min(Math.max(80, startH + delta), maxH);
     panel.style.height = newH + 'px';
     panel.style.minHeight = newH + 'px';
     panel.style.transition = 'none';
