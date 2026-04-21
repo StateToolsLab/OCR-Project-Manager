@@ -364,7 +364,7 @@ def fix_image_orientation(input_file):
         return None
 
 
-def run_ocr_single(input_file, output_dir, job_id):
+def run_ocr_single(input_file, output_dir, job_id, simple_mode=False):
     """1枚OCR実行→即座に画像名でリネーム保存"""
     import tempfile, glob
     tmp_dir = Path(tempfile.mkdtemp())
@@ -416,6 +416,8 @@ def run_ocr_single(input_file, output_dir, job_id):
             "--sourceimg", str(ocr_source),
             "--output", str(tmp_dir),
         ]
+        if simple_mode:
+            cmd += ["--simple-mode", "true"]
         with open(os.devnull, 'r') as devnull_r, open(os.devnull, 'w') as devnull_w:
             proc = subprocess.Popen(
                 cmd,
@@ -728,6 +730,222 @@ def export_project(project_name):
 
     return jsonify({"error": "Unknown format"}), 400
 
+
+
+
+@app.route("/api/projects/<project_name>/page/<filename>/reocr_block", methods=["POST"])
+def reocr_block(project_name, filename):
+    """選択ブロックのboundingBoxでクロップして再OCR実行"""
+    import tempfile
+    from PIL import Image
+    project_path = get_project_dir(project_name)
+    input_path = project_path / "input" / filename
+    if not input_path.exists():
+        return jsonify({"error": "Image not found"}), 404
+
+    data = request.json
+    bb = data.get("boundingBox")
+    if not bb:
+        return jsonify({"error": "boundingBox required"}), 400
+
+    xs = [p[0] for p in bb]
+    ys = [p[1] for p in bb]
+    x1, y1 = int(min(xs)), int(min(ys))
+    x2, y2 = int(max(xs)), int(max(ys))
+
+    tmp_dir = Path(tempfile.mkdtemp())
+    try:
+        img = Image.open(str(input_path))
+        crop = img.crop((x1, y1, x2, y2))
+        crop_path = tmp_dir / "reocr_crop.png"
+        crop.save(str(crop_path))
+
+        tmp_out = tmp_dir / "out"
+        tmp_out.mkdir()
+        simple_mode = data.get("simple_mode", False)
+        ok, msg = run_ocr_single(crop_path, tmp_out, "reocr", simple_mode=simple_mode)
+        if not ok:
+            return jsonify({"error": msg}), 500
+
+        json_files = list(tmp_out.glob("*.json"))
+        if not json_files:
+            return jsonify({"error": "OCR結果が取得できませんでした"}), 500
+
+        with open(json_files[0], encoding="utf-8") as f:
+            result = json.load(f)
+
+        blocks = result.get("contents", [[]])[0]
+        text = "\n".join(b.get("text", "") for b in blocks if b.get("text", "").strip())
+        return jsonify({"text": text})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        import shutil as _sh
+        _sh.rmtree(str(tmp_dir), ignore_errors=True)
+
+
+
+# ── 校正辞書 ──────────────────────────────────────────────────────────────────
+def load_dict(dict_file):
+    if dict_file.exists():
+        with open(dict_file, encoding="utf-8") as f:
+            return json.load(f)
+    return {"rules": []}
+
+def save_dict(dict_file, data):
+    with open(dict_file, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def new_rule_id(rules):
+    if not rules:
+        return "r1"
+    nums = [int(r["id"][1:]) for r in rules if r["id"].startswith("r")]
+    return f"r{max(nums)+1}" if nums else "r1"
+
+@app.route("/api/projects/<project_name>/correction_dict", methods=["GET"])
+def get_project_dict(project_name):
+    dict_file = get_project_dir(project_name) / "correction_dict.json"
+    return jsonify(load_dict(dict_file))
+
+@app.route("/api/projects/<project_name>/correction_dict", methods=["POST"])
+def add_project_rule(project_name):
+    data = request.json
+    dict_file = get_project_dir(project_name) / "correction_dict.json"
+    d = load_dict(dict_file)
+    rule = {
+        "id": new_rule_id(d["rules"]),
+        "from": data.get("from", ""),
+        "to": data.get("to", ""),
+        "type": data.get("type", "char"),
+        "note": data.get("note", ""),
+        "created": datetime.now().isoformat(),
+    }
+    d["rules"].append(rule)
+    save_dict(dict_file, d)
+    return jsonify({"success": True, "rule": rule})
+
+@app.route("/api/projects/<project_name>/correction_dict/<rule_id>", methods=["DELETE"])
+def delete_project_rule(project_name, rule_id):
+    dict_file = get_project_dir(project_name) / "correction_dict.json"
+    d = load_dict(dict_file)
+    d["rules"] = [r for r in d["rules"] if r["id"] != rule_id]
+    save_dict(dict_file, d)
+    return jsonify({"success": True})
+
+@app.route("/api/projects/<project_name>/correction_dict/<rule_id>", methods=["PUT"])
+def update_project_rule(project_name, rule_id):
+    data = request.json
+    dict_file = get_project_dir(project_name) / "correction_dict.json"
+    d = load_dict(dict_file)
+    for r in d["rules"]:
+        if r["id"] == rule_id:
+            r.update({k: v for k, v in data.items() if k != "id"})
+    save_dict(dict_file, d)
+    return jsonify({"success": True})
+
+@app.route("/api/projects/<project_name>/apply_correction", methods=["POST"])
+def apply_correction(project_name):
+    project_path = get_project_dir(project_name)
+    input_dir = project_path / "input"
+    output_dir = project_path / "output"
+
+    d = load_dict(project_path / "correction_dict.json")
+    rules = [{**r, "source": "project"} for r in d["rules"]]
+    if not rules:
+        return jsonify({"success": True, "applied": 0})
+
+    applied = 0
+    images = [f for ext in ["*.png","*.jpg","*.jpeg","*.PNG","*.JPG","*.JPEG"]
+              for f in input_dir.glob(ext)]
+
+    for img in images:
+        json_file = find_ocr_json(output_dir, img.name)
+        if not json_file:
+            continue
+        overlay_file = output_dir / (img.stem + "_overlay.json")
+        with open(json_file, encoding="utf-8") as f:
+            ocr_data = json.load(f)
+        overlay = {}
+        if overlay_file.exists():
+            with open(overlay_file, encoding="utf-8") as f:
+                overlay = json.load(f)
+
+        blocks = ocr_data.get("contents", [[]])[0]
+        for block in blocks:
+            bid = str(block.get("id", ""))
+            ov = overlay.get(bid, {})
+            if ov.get("checked"):
+                continue
+            text = ov.get("text") or block.get("text", "")
+            original = text
+            matched_rule = None
+            for rule in rules:
+                if rule["from"] in text:
+                    text = text.replace(rule["from"], rule["to"])
+                    matched_rule = rule
+            if matched_rule and text != original:
+                overlay.setdefault(bid, {})
+                overlay[bid]["text"] = text
+                overlay[bid]["original_ocr_text"] = original
+                overlay[bid]["correction_applied"] = True
+                overlay[bid]["correction_rule_id"] = matched_rule["id"]
+                applied += 1
+
+        with open(overlay_file, "w", encoding="utf-8") as f:
+            json.dump(overlay, f, ensure_ascii=False, indent=2)
+
+    return jsonify({"success": True, "applied": applied})
+
+@app.route("/api/projects/<project_name>/suggestions/analyze", methods=["POST"])
+def analyze_suggestions(project_name):
+    """overlay内の編集済みテキストとOCR原文の差分から候補を生成"""
+    import difflib
+    from collections import Counter
+    project_path = get_project_dir(project_name)
+    output_dir = project_path / "output"
+    threshold = request.json.get("threshold", 2)
+
+    pattern_counter = Counter()
+    for overlay_file in output_dir.glob("*_overlay.json"):
+        stem = overlay_file.stem.replace("_overlay", "")
+        json_file = find_ocr_json(output_dir, stem + ".png") or find_ocr_json(output_dir, stem + ".jpg")
+        if not json_file:
+            continue
+        with open(json_file, encoding="utf-8") as f:
+            ocr_data = json.load(f)
+        with open(overlay_file, encoding="utf-8") as f:
+            overlay = json.load(f)
+        blocks = ocr_data.get("contents", [[]])[0]
+        for block in blocks:
+            bid = str(block.get("id", ""))
+            ov = overlay.get(bid, {})
+            orig = block.get("text", "").strip()
+            corr = ov.get("text", "").strip()
+            if orig and corr and orig != corr:
+                matcher = difflib.SequenceMatcher(None, orig, corr)
+                for op, i1, i2, j1, j2 in matcher.get_opcodes():
+                    if op != "equal":
+                        from_str = orig[i1:i2]
+                        to_str = corr[j1:j2]
+                        if from_str and to_str:
+                            pattern_counter[(from_str, to_str)] += 1
+
+    now = datetime.now().isoformat()
+    result = [
+        {
+            "id": str(int(datetime.now().timestamp() * 1000) + i),
+            "from": k[0],
+            "to": k[1],
+            "count": v,
+            "status": "pending",
+            "first_seen": now,
+            "last_seen": now,
+        }
+        for i, (k, v) in enumerate(pattern_counter.most_common(20))
+        if v >= threshold
+    ]
+    return jsonify(result)
 
 if __name__ == "__main__":
     import webbrowser

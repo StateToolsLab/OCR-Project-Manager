@@ -1194,6 +1194,74 @@
   </div>
 </div>
 
+
+<!-- 校正辞書モーダル -->
+<div class="modal-overlay" id="correctionDictModal">
+  <div class="modal modal-wide">
+    <div class="modal-title" id="labelCorrectionDictTitle">📖 校正辞書</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+      <input class="form-input" id="dictFromInput" placeholder="補正前" style="flex:1">
+      <span style="color:var(--text3)">→</span>
+      <input class="form-input" id="dictToInput" placeholder="補正後" style="flex:1">
+      <input class="form-input" id="dictNoteInput" placeholder="メモ（任意）" style="flex:1">
+      <button class="btn btn-primary" onclick="addDictRule()" id="btnDictAdd">追加</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;max-height:400px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border2)">
+            <th style="padding:6px;text-align:left;color:var(--text3);font-weight:normal" id="thDictFrom">補正前</th>
+            <th style="padding:6px;text-align:left;color:var(--text3);font-weight:normal" id="thDictTo">補正後</th>
+            <th style="padding:6px;text-align:left;color:var(--text3);font-weight:normal" id="thDictNote">メモ</th>
+            <th style="padding:6px;width:60px"></th>
+          </tr>
+        </thead>
+        <tbody id="dictRulesBody"></tbody>
+      </table>
+      <div id="dictEmpty" style="padding:20px;text-align:center;color:var(--text3);font-size:12px;display:none">
+        ルールがありません
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn" onclick="openSuggestionsModal()" id="btnDictSuggest">📊 候補を提案</button>
+      <button class="btn" onclick="closeModal('correctionDictModal')" id="btnDictClose">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 候補提案モーダル -->
+<div class="modal-overlay" id="suggestionsModal">
+  <div class="modal modal-wide">
+    <div class="modal-title" id="labelSuggestionsTitle">📊 校正辞書候補</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-size:11px;color:var(--text3)" id="labelSuggThreshold">最低出現回数</span>
+      <input type="number" id="suggThreshold" value="2" min="1"
+             style="width:52px;background:var(--bg3);border:1px solid var(--border2);
+                    color:var(--text);padding:3px 6px;border-radius:3px;font-size:11px;text-align:center">
+      <button class="btn" onclick="loadSuggestions()" id="btnSuggAnalyze">分析</button>
+      <span style="font-size:11px;color:var(--text3);margin-left:auto" id="suggStatus"></span>
+    </div>
+    <div style="overflow-y:auto;max-height:400px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border2)">
+            <th style="padding:6px;text-align:left;color:var(--text3);font-weight:normal" id="thSuggFrom">補正前</th>
+            <th style="padding:6px;text-align:left;color:var(--text3);font-weight:normal" id="thSuggTo">補正後</th>
+            <th style="padding:6px;text-align:center;color:var(--text3);font-weight:normal;width:50px" id="thSuggCount">回数</th>
+            <th style="padding:6px;width:120px"></th>
+          </tr>
+        </thead>
+        <tbody id="suggestionsBody"></tbody>
+      </table>
+      <div id="suggestionsEmpty" style="display:none;padding:20px;text-align:center;color:var(--text3);font-size:12px">
+        候補がありません
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn" onclick="closeModal('suggestionsModal')" id="btnSuggClose">閉じる</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1249,10 +1317,18 @@ const i18n = {
     vertical2: '縦書き',
     horizontal: '横書き',
     exportTitle: '統合出力',
+    correctionDict: '校正辞書',
+    applyCorrection: '校正辞書を適用',
+    applyCorrectionDone: (n) => `${n}件に校正を適用しました`,
+    suggestions: '候補提案',
     exportFormat: '出力形式',
     exportTxt: 'TXT形式（テキストのみ）',
     exportJson: 'JSON形式（座標・信頼度付き）',
     blockDelete: 'このブロックを削除',
+    reOcrBlock: '再OCR',
+    reOcrDone: (n) => `#${n} 再OCR完了`,
+    reOcrError: (m) => `再OCRエラー: ${m}`,
+    reOcrFailed: '再OCRに失敗しました',
     confirmDeleteProject: (n) => `「${n}」を削除しますか？元に戻せません。`,
     confirmDeletePage: (n) => `「${n}」を削除しますか？
 関連するOCRデータも削除されます。`,
@@ -1330,10 +1406,18 @@ const i18n = {
     vertical2: 'Vertical',
     horizontal: 'Horizontal',
     exportTitle: 'Export',
+    correctionDict: 'Correction Dict',
+    applyCorrection: 'Apply Dict',
+    applyCorrectionDone: (n) => `Applied corrections to ${n} blocks`,
+    suggestions: 'Suggestions',
     exportFormat: 'Format',
     exportTxt: 'TXT (text only)',
     exportJson: 'JSON (with coordinates & confidence)',
     blockDelete: 'Delete this block',
+    reOcrBlock: 'Re-OCR',
+    reOcrDone: (n) => `#${n} re-OCR done`,
+    reOcrError: (m) => `Re-OCR error: ${m}`,
+    reOcrFailed: 'Re-OCR failed',
     confirmDeleteProject: (n) => `Delete "${n}"? This cannot be undone.`,
     confirmDeletePage: (n) => `Delete "${n}"?
 Related OCR data will also be deleted.`,
@@ -1530,10 +1614,14 @@ function renderProjectView() {
   main.innerHTML = `
   <div class="project-view">
     <div class="project-toolbar">
-      <span class="project-toolbar-title">${state.currentProject}</span>
-      <button class="btn" onclick="openEditProjectModal()">${t('edit')}</button>
+      <span class="project-toolbar-title">${state.currentProject}
+        <button onclick="openEditProjectModal()"
+                style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0 4px;line-height:1;vertical-align:middle">✏️</button>
+      </span>
       <button class="btn" onclick="openAddFileModal()">${t('addImage')}</button>
       <button class="btn btn-primary" onclick="runOcrAll()">${t('runOcrAll')}</button>
+      <button class="btn" onclick="openCorrectionDictModal()">${t('correctionDict')}</button>
+      <button class="btn" onclick="applyCorrectionDict()">${t('applyCorrection')}</button>
       <button class="btn" onclick="openExportModal()">${t('export')}</button>
       <button class="btn btn-danger" onclick="deleteProject()">${t('delete')}</button>
     </div>
@@ -1813,6 +1901,19 @@ function renderBlockList() {
         <input type="checkbox" class="block-check" ${isChecked ? 'checked' : ''}
                onchange="toggleCheck(${block.id}, this.checked)" title="${lang==='ja'?'確認済み':'Confirmed'}"
                onclick="event.stopPropagation()">
+        <select id="engine-sel-${block.id}"
+                onclick="event.stopPropagation()"
+                style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);
+                       font-size:10px;padding:1px 3px;border-radius:2px;cursor:pointer;
+                       font-family:var(--font-mono)">
+          <option value="lite">Lite</option>
+          <option value="lite-high">Lite+</option>
+        </select>
+        <button id="reocr-btn-${block.id}"
+                onclick="event.stopPropagation();reOcrBlock(${block.id})"
+                style="background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer;
+                       font-size:11px;padding:1px 5px;border-radius:2px;line-height:1.4"
+                title="${t('reOcrBlock')}">↺</button>
         <button onclick="event.stopPropagation();deleteBlock(${block.id})"
                 style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 2px;line-height:1"
                 title="${t('blockDelete')}">×</button>
@@ -1831,6 +1932,226 @@ async function toggleParaBreak(blockId) {
   ov.paragraph_break = !ov.paragraph_break;
   await persistOverlay();
   renderBlockList();
+}
+
+
+// ── 校正辞書 ─────────────────────────────────────────────────────────────────
+let dictRules = [];
+
+async function openCorrectionDictModal() {
+  document.getElementById('correctionDictModal').classList.add('open');
+  await loadDictRules();
+}
+
+async function loadDictRules() {
+  const res = await fetch(`/api/projects/${encodeURIComponent(state.currentProject)}/correction_dict`);
+  const data = await res.json();
+  dictRules = data.rules || [];
+  renderDictRules();
+}
+
+function renderDictRules() {
+  const tbody = document.getElementById('dictRulesBody');
+  const empty = document.getElementById('dictEmpty');
+  if (!dictRules.length) {
+    tbody.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = dictRules.map(r => `
+    <tr style="border-bottom:1px solid var(--border)" id="dict-row-${r.id}">
+      <td style="padding:6px">
+        <input type="text" value="${r.from.replace(/"/g,'&quot;')}" id="dict-from-${r.id}"
+               style="width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+                      padding:2px 6px;border-radius:2px;font-size:12px;font-family:var(--font-serif)"
+               onblur="updateDictRule('${r.id}')">
+      </td>
+      <td style="padding:6px">
+        <input type="text" value="${r.to.replace(/"/g,'&quot;')}" id="dict-to-${r.id}"
+               style="width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+                      padding:2px 6px;border-radius:2px;font-size:12px;font-family:var(--font-serif)"
+               onblur="updateDictRule('${r.id}')">
+      </td>
+      <td style="padding:6px">
+        <input type="text" value="${(r.note||'').replace(/"/g,'&quot;')}" id="dict-note-${r.id}"
+               style="width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);
+                      padding:2px 6px;border-radius:2px;font-size:12px;font-family:var(--font-serif)"
+               onblur="updateDictRule('${r.id}')">
+      </td>
+      <td style="padding:6px;text-align:center">
+        <button class="btn btn-danger" style="font-size:10px;padding:2px 6px"
+                onclick="deleteDictRule('${r.id}')">×</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function addDictRule() {
+  const from = document.getElementById('dictFromInput').value.trim();
+  const to = document.getElementById('dictToInput').value.trim();
+  const note = document.getElementById('dictNoteInput').value.trim();
+  if (!from || !to) { toast(lang === 'ja' ? '補正前・補正後は必須です' : 'From and To are required', 'error'); return; }
+  await fetch(`/api/projects/${encodeURIComponent(state.currentProject)}/correction_dict`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to, note }),
+  });
+  document.getElementById('dictFromInput').value = '';
+  document.getElementById('dictToInput').value = '';
+  document.getElementById('dictNoteInput').value = '';
+  await loadDictRules();
+}
+
+async function deleteDictRule(ruleId) {
+  await fetch(`/api/projects/${encodeURIComponent(state.currentProject)}/correction_dict/${ruleId}`, {
+    method: 'DELETE',
+  });
+  await loadDictRules();
+}
+
+async function updateDictRule(ruleId) {
+  const from = document.getElementById(`dict-from-${ruleId}`)?.value.trim();
+  const to = document.getElementById(`dict-to-${ruleId}`)?.value.trim();
+  const note = document.getElementById(`dict-note-${ruleId}`)?.value.trim();
+  if (!from || !to) return;
+  await fetch(`/api/projects/${encodeURIComponent(state.currentProject)}/correction_dict/${ruleId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to, note }),
+  });
+}
+
+async function applyCorrectionDict() {
+  if (!state.currentProject) return;
+  const res = await fetch(`/api/projects/${encodeURIComponent(state.currentProject)}/apply_correction`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  const data = await res.json();
+  toast(t('applyCorrectionDone', data.applied), 'success');
+  // 現在のページを再読込
+  if (state.currentPage) await selectPage(state.currentPage);
+}
+
+// ── 候補提案 ──────────────────────────────────────────────────────────────────
+async function openSuggestionsModal() {
+  closeModal('correctionDictModal');
+  document.getElementById('suggestionsModal').classList.add('open');
+  await loadSuggestions();
+}
+
+async function loadSuggestions() {
+  const threshold = parseInt(document.getElementById('suggThreshold').value) || 2;
+  const status = document.getElementById('suggStatus');
+  status.textContent = lang === 'ja' ? '分析中...' : 'Analyzing...';
+  try {
+    const res = await fetch(`/api/projects/${encodeURIComponent(state.currentProject)}/suggestions/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ threshold }),
+    });
+    const suggestions = await res.json();
+    renderSuggestions(suggestions);
+    status.textContent = `${suggestions.length}${lang === 'ja' ? '件' : ' found'}`;
+  } catch(e) {
+    status.textContent = lang === 'ja' ? 'エラー' : 'Error';
+  }
+}
+
+function renderSuggestions(suggestions) {
+  const tbody = document.getElementById('suggestionsBody');
+  const empty = document.getElementById('suggestionsEmpty');
+  if (!suggestions.length) {
+    tbody.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = suggestions.map(s => `
+    <tr style="border-bottom:1px solid var(--border)" id="sugg-row-${s.id}">
+      <td style="padding:6px">
+        <input type="text" value="${s.from.replace(/"/g,'&quot;')}" id="sugg-from-${s.id}"
+               style="width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+                      padding:2px 6px;border-radius:2px;font-size:12px;font-family:var(--font-serif)">
+      </td>
+      <td style="padding:6px">
+        <input type="text" value="${s.to.replace(/"/g,'&quot;')}" id="sugg-to-${s.id}"
+               style="width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+                      padding:2px 6px;border-radius:2px;font-size:12px;font-family:var(--font-serif)">
+      </td>
+      <td style="padding:6px;text-align:center;color:var(--text2)">${s.count}</td>
+      <td style="padding:6px">
+        <div style="display:flex;gap:4px;justify-content:center">
+          <button class="btn btn-primary" style="font-size:10px;padding:2px 8px"
+                  onclick="adoptSuggestion('${s.id}')">採用</button>
+          <button class="btn btn-danger" style="font-size:10px;padding:2px 8px"
+                  onclick="rejectSuggestion('${s.id}')">却下</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+async function adoptSuggestion(id) {
+  const from = document.getElementById(`sugg-from-${id}`)?.value.trim();
+  const to = document.getElementById(`sugg-to-${id}`)?.value.trim();
+  if (!from || !to) return;
+  await fetch(`/api/projects/${encodeURIComponent(state.currentProject)}/correction_dict`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to }),
+  });
+  const row = document.getElementById(`sugg-row-${id}`);
+  if (row) row.style.opacity = '0.4';
+  toast(lang === 'ja' ? `「${from}→${to}」を辞書に追加しました` : `Added "${from}→${to}" to dictionary`, 'success');
+}
+
+async function rejectSuggestion(id) {
+  const row = document.getElementById(`sugg-row-${id}`);
+  if (row) row.remove();
+}
+
+// ── Re-OCR Block ─────────────────────────────────────────────────────────────
+async function reOcrBlock(blockId) {
+  const block = (state.pageData.ocr.contents?.[0] || []).find(b => b.id === blockId);
+  if (!block || !block.boundingBox) {
+    toast(t('reOcrFailed'), 'error');
+    return;
+  }
+  const sel = document.getElementById(`engine-sel-${blockId}`);
+  const engine = sel ? sel.value : 'lite';
+  const btn = document.getElementById(`reocr-btn-${blockId}`);
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+
+  try {
+    const res = await fetch(
+      `/api/projects/${encodeURIComponent(state.currentProject)}/page/${encodeURIComponent(state.currentPage)}/reocr_block`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          boundingBox: block.boundingBox,
+          engine: engine === 'lite-high' ? 'lite' : engine,
+          simple_mode: engine === 'lite-high',
+        }),
+      }
+    );
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      toast(t('reOcrError', data.error || ''), 'error');
+      return;
+    }
+    const ov = getOrCreateOverlay(blockId);
+    ov.text = data.text;
+    await persistOverlay();
+    const textEl = document.getElementById(`text-${blockId}`);
+    if (textEl) textEl.innerText = data.text;
+    toast(t('reOcrDone', blockId), 'success');
+  } catch(e) {
+    toast(t('reOcrFailed'), 'error');
+  } finally {
+    if (btn) { btn.textContent = '↺'; btn.disabled = false; }
+  }
 }
 
 // ── Delete Block ─────────────────────────────────────────────────────────────
