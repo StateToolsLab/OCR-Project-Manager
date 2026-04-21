@@ -51,11 +51,10 @@ def check_modules():
     return results
 
 
-def launch_version(version):
-    """指定バージョンのappをサブプロセスで起動する"""
+def launch_version():
+    """app.pyをサブプロセスで起動する"""
     import os
-    script = "app_v2.py" if version == "v2" else "app.py"
-    script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), script)
+    script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
     subprocess.Popen(
         [sys.executable, script_path],
         stdout=subprocess.DEVNULL,
@@ -279,9 +278,8 @@ LAUNCHER_HTML = """<!DOCTYPE html>
   <div class="section-label">モジュール状態</div>
   <div class="module-list" id="moduleList"></div>
 
-  <div class="actions">
-    <button class="launch-btn secondary" id="btnV1" onclick="doLaunch('v1')">v1で起動する</button>
-    <button class="launch-btn" id="btnV2" onclick="doLaunch('v2')">インストール後にv2で起動する</button>
+  <div class="actions" style="grid-template-columns:1fr">
+    <button class="launch-btn" id="btnLaunch" onclick="doLaunch()">インストール後に起動する</button>
   </div>
   <div class="status-area" id="statusArea"></div>
 
@@ -299,7 +297,7 @@ async function loadModules() {
   const missing = data.modules.filter(m => !m.ok);
   const banner = document.getElementById('warnBanner');
   if (missing.length > 0) {
-    banner.textContent = `v2の必須モジュールが ${missing.length} 件不足しています。v1で起動するか、インストール後にv2で起動してください。`;
+    banner.textContent = `必須モジュールが ${missing.length} 件不足しています。インストール後に起動してください。`;
   } else {
     banner.textContent = '全モジュールが揃っています。v2で起動できます。';
     banner.style.color = 'var(--ok)';
@@ -333,20 +331,18 @@ function copyCmd(btn, cmd) {
 }
 
 // ── 起動 ──────────────────────────────────────────────────────────────────────
-async function doLaunch(version) {
-  const btnV1 = document.getElementById('btnV1');
-  const btnV2 = document.getElementById('btnV2');
+async function doLaunch() {
+  const btn = document.getElementById('btnLaunch');
   const status = document.getElementById('statusArea');
 
-  btnV1.disabled = true;
-  btnV2.disabled = true;
-  status.textContent = `${version === 'v2' ? 'v2 拡張版' : 'v1 安定版'} を起動中...`;
+  btn.disabled = true;
+  status.textContent = '起動中...';
   status.className = 'status-area launching';
 
   const res = await fetch('/api/launch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ version }),
+    body: JSON.stringify({}),
   });
   const data = await res.json();
 
@@ -359,8 +355,7 @@ async function doLaunch(version) {
   } else {
     status.textContent = `エラー: ${data.error}`;
     status.className = 'status-area error';
-    btnV1.disabled = false;
-    btnV2.disabled = false;
+    btn.disabled = false;
     // モジュール状態を再取得して表示を更新
     loadModules();
   }
@@ -391,18 +386,12 @@ def create_flask_app():
 
     @flask_app.route("/api/launch", methods=["POST"])
     def api_launch():
-        data = freq.json
-        version = data.get("version", "v1")
-
-        # v2起動時はモジュールを再チェック
-        if version == "v2":
-            modules = check_modules()
-            missing = [m["name"] for m in modules if not m["ok"]]
-            if missing:
-                return jsonify({"ok": False, "error": f"不足モジュール: {', '.join(missing)}"})
-
+        modules = check_modules()
+        missing = [m["name"] for m in modules if not m["ok"]]
+        if missing:
+            return jsonify({"ok": False, "error": f"不足モジュール: {', '.join(missing)}"})
         try:
-            launch_version(version)
+            launch_version()
             threading.Timer(2.0, lambda: server_should_stop.set()).start()
             return jsonify({"ok": True})
         except Exception as e:
@@ -431,9 +420,9 @@ if __name__ == "__main__":
     v2_available = all(m["ok"] for m in modules)
 
     if v2_available:
-        # 全部OK → v2を直接起動（ランチャーUIスキップ）
-        print("OCR Project Manager v2 を起動します...")
-        launch_version("v2")
+        # 全部OK → 直接起動（ランチャーUIスキップ）
+        print("OCR Project Manager を起動します...")
+        launch_version()
         import time
         threading.Timer(1.5, lambda: webbrowser.open("http://localhost:5050")).start()
         print("ブラウザで http://localhost:5050 を開きます。")
