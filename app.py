@@ -947,6 +947,109 @@ def analyze_suggestions(project_name):
     ]
     return jsonify(result)
 
+
+
+# ── PDF変換 ───────────────────────────────────────────────────────────────────
+pdf_progress = {}
+PDF_SIZE_LIMIT = 1 * 1024 * 1024 * 1024  # 1GB
+
+def convert_pdf_to_images(pdf_path, output_dir, dpi=300, fmt="png", prefix=None):
+    try:
+        from pdf2image import convert_from_path
+    except ImportError:
+        return False, [], "pdf2image not installed. Run: pip install pdf2image"
+    if not pdf_path.exists():
+        return False, [], f"PDF not found: {pdf_path}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    prefix = prefix or pdf_path.stem
+    try:
+        pages = convert_from_path(str(pdf_path), dpi=dpi)
+    except Exception as e:
+        return False, [], f"PDF conversion failed: {e}"
+    saved = []
+    digits = len(str(len(pages)))
+    for i, page in enumerate(pages, start=1):
+        filename = f"{prefix}_{str(i).zfill(digits)}.{fmt}"
+        out_path = output_dir / filename
+        page.save(str(out_path), fmt.upper() if fmt != "jpg" else "JPEG")
+        saved.append(filename)
+    return True, saved, f"{len(saved)}ページを変換しました"
+
+@app.route("/api/pdf/check")
+def pdf_check():
+    try:
+        from pdf2image import convert_from_path
+        return jsonify({"available": True, "message": "ok"})
+    except ImportError:
+        return jsonify({"available": False, "message": "pdf2image not installed"})
+
+@app.route("/api/projects/<project_name>/upload_pdf", methods=["POST"])
+def upload_pdf(project_name):
+    import tempfile
+    project_path = get_project_dir(project_name)
+    if not project_path.exists():
+        return jsonify({"error": "Project not found"}), 404
+    if "file" not in request.files:
+        return jsonify({"error": "No file"}), 400
+    file = request.files["file"]
+    if not file.filename.lower().endswith(".pdf"):
+        return jsonify({"error": "PDFファイルのみ対応しています"}), 400
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0)
+    if size > PDF_SIZE_LIMIT:
+        return jsonify({"error": "ファイルサイズが上限（1GB）を超えています"}), 400
+    dpi = int(request.form.get("dpi", 300))
+    job_id = f"pdf_{project_name}_{file.filename}"
+    pdf_progress[job_id] = {"status": "converting", "message": "変換中..."}
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        file.save(tmp.name)
+        tmp_path = Path(tmp.name)
+    def run():
+        try:
+            prefix = Path(file.filename).stem
+            input_dir = project_path / "input"
+            ok, saved, msg = convert_pdf_to_images(tmp_path, input_dir, dpi=dpi, prefix=prefix)
+            if not ok:
+                pdf_progress[job_id] = {"status": "error", "message": msg}
+                return
+            meta = load_project_meta(project_path)
+            existing = set(meta.get("page_order", []))
+            for name in saved:
+                if name not in existing:
+                    meta.setdefault("page_order", []).append(name)
+            save_project_meta(project_path, meta)
+            pdf_progress[job_id] = {"status": "done", "message": msg, "files": saved}
+        finally:
+            tmp_path.unlink(missing_ok=True)
+    threading.Thread(target=run, daemon=True).start()
+    return jsonify({"job_id": job_id})
+
+@app.route("/api/pdf_progress/<path:job_id>")
+def get_pdf_progress(job_id):
+    return jsonify(pdf_progress.get(job_id, {"status": "unknown"}))
+
+@app.route("/api/pdf/info", methods=["POST"])
+def pdf_info():
+    import tempfile
+    if "file" not in request.files:
+        return jsonify({"error": "No file"}), 400
+    file = request.files["file"]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        file.save(tmp.name)
+        tmp_path = Path(tmp.name)
+    try:
+        from pdf2image import pdfinfo_from_path
+        info = pdfinfo_from_path(str(tmp_path))
+        return jsonify({
+            "pages": info.get("Pages", "?"),
+            "title": info.get("Title", ""),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
 if __name__ == "__main__":
     import webbrowser
     print("OCR Project Manager 起動中...")

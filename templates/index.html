@@ -1044,60 +1044,6 @@
   </div>
 </div>
 
-<!-- Add File Modal -->
-<div class="modal-overlay" id="addFileModal">
-  <div class="modal">
-    <div class="modal-title">ファイルを追加</div>
-
-    <!-- Drop Zone -->
-    <div id="addFileDropZone" style="
-      border: 2px dashed var(--border2);
-      border-radius: 6px;
-      padding: 28px 16px;
-      text-align: center;
-      margin-bottom: 16px;
-      cursor: pointer;
-      transition: border-color 0.2s;
-    "
-    ondragover="event.preventDefault(); this.style.borderColor='var(--accent)'"
-    ondragleave="this.style.borderColor='var(--border2)'"
-    ondrop="handleAddFileDrop(event)"
-    onclick="document.getElementById('addFileInput').click()"
-    >
-      <div style="font-size:24px;margin-bottom:8px;opacity:0.4">⊕</div>
-      <div style="font-size:12px;color:var(--text2)">ここにドロップ、またはクリックして選択</div>
-      <div style="font-size:10px;color:var(--text3);margin-top:6px" id="addFileImgNote">画像: PNG / JPG / JPEG / TIFF / JP2 / BMP</div>
-      <div id="addFilePdfNote" style="font-size:10px;color:var(--text3);margin-top:2px;display:none">PDF: ページ数が多い場合、変換に時間がかかります</div>
-    </div>
-
-    <!-- Hidden inputs -->
-    <input type="file" id="addFileInput" accept=".png,.jpg,.jpeg,.tiff,.tif,.jp2,.bmp" multiple style="display:none" onchange="handleAddFileInput(event)">
-    <input type="file" id="addPdfInput" accept=".pdf" style="display:none" onchange="handleAddPdfInput(event)">
-    <!-- Paste Button (always visible) -->
-    <div style="margin-bottom:12px">
-      <button class="btn" id="addFilePasteBtn" style="width:100%" onclick="pasteImageFromClipboard()"></button>
-    </div>
-
-    <!-- Image Button (always visible) -->
-    <div style="margin-bottom:12px">
-      <button class="btn" id="addFileImgBtnButton" style="width:100%" onclick="document.getElementById('addFileInput').click()"></button>
-    </div>
-
-    <!-- PDF Button (v2 only) -->
-    <div id="addFilePdfBtn" style="display:none;margin-bottom:12px">
-      <button class="btn" style="width:100%" onclick="document.getElementById('addPdfInput').click()">
-        📄 PDFを追加（別途選択）
-      </button>
-    </div>
-
-    <!-- Progress -->
-    <div id="addFileProgress" style="display:none;font-size:11px;color:var(--text2);margin-bottom:12px;font-family:var(--font-mono)"></div>
-
-    <div class="modal-actions">
-      <button class="btn" onclick="closeModal('addFileModal')">閉じる</button>
-    </div>
-  </div>
-</div>
 
 <!-- Figure Crop Modal -->
 <div class="modal-overlay" id="figureCropModal">
@@ -1259,6 +1205,55 @@
     </div>
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn" onclick="closeModal('suggestionsModal')" id="btnSuggClose">閉じる</button>
+    </div>
+  </div>
+</div>
+
+
+
+
+<!-- Add File Modal -->
+<div class="modal-overlay" id="addFileModal">
+  <div class="modal">
+    <div class="modal-title" id="addFileTitle">ファイルを追加</div>
+    <div id="addFileDropZone" style="
+      border: 2px dashed var(--border2);
+      border-radius: 6px;
+      padding: 28px 16px;
+      text-align: center;
+      margin-bottom: 16px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    "
+    ondragover="event.preventDefault(); this.style.borderColor='var(--accent)'"
+    ondragleave="this.style.borderColor='var(--border2)'"
+    ondrop="handleAddFileDrop(event)"
+    onclick="document.getElementById('addFileInput').click()">
+      <div style="font-size:24px;margin-bottom:8px;opacity:0.4">⊕</div>
+      <div style="font-size:12px;color:var(--text2)" id="addFileDropHint">ここにドロップ、またはクリックして選択</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:6px" id="addFileImgNote">画像: PNG / JPG / JPEG</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px" id="addFilePdfNote">PDF: ページ数が多い場合、変換に時間がかかります</div>
+    </div>
+    <input type="file" id="addFileInput" accept=".png,.jpg,.jpeg" multiple style="display:none" onchange="handleAddFileInput(event)">
+    <input type="file" id="addPdfInput" accept=".pdf" style="display:none" onchange="handleAddPdfInput(event)">
+    <div style="margin-bottom:12px">
+      <button class="btn" style="width:100%" onclick="pasteImageFromClipboard()" id="addFilePasteBtn">
+        📋 クリップボードから貼り付け
+      </button>
+    </div>
+    <div style="margin-bottom:12px">
+      <button class="btn" style="width:100%" onclick="document.getElementById('addFileInput').click()" id="addFileImgBtn">
+        🖼 画像を追加（別途選択）
+      </button>
+    </div>
+    <div style="margin-bottom:12px">
+      <button class="btn" style="width:100%" onclick="document.getElementById('addPdfInput').click()">
+        📄 PDFを追加（別途選択）
+      </button>
+    </div>
+    <div id="addFileProgress" style="display:none;font-size:11px;color:var(--text2);margin-bottom:12px;font-family:var(--font-mono)"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('addFileModal')" id="addFileCloseBtn">閉じる</button>
     </div>
   </div>
 </div>
@@ -1934,6 +1929,112 @@ async function toggleParaBreak(blockId) {
   renderBlockList();
 }
 
+
+
+// ── Add File Modal ────────────────────────────────────────────────────────────
+function openAddFileModal() {
+  document.getElementById('addFileProgress').style.display = 'none';
+  document.getElementById('addFileModal').classList.add('open');
+}
+
+async function handleAddFileDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('addFileDropZone').style.borderColor = 'var(--border2)';
+  closeModal('addFileModal');
+  const files = Array.from(e.dataTransfer.files);
+  const images = files.filter(f => f.type.startsWith('image/'));
+  const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+  if (images.length) await doUpload(images);
+  if (pdfs.length) await doUploadPdfs(pdfs);
+}
+
+async function handleAddFileInput(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  closeModal('addFileModal');
+  await doUpload(files);
+  e.target.value = '';
+}
+
+async function handleAddPdfInput(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  closeModal('addFileModal');
+  await doUploadPdfs(files);
+  e.target.value = '';
+}
+
+async function pasteImageFromClipboard() {
+  try {
+    const items = await navigator.clipboard.read();
+    let found = false;
+    for (const item of items) {
+      const imageType = item.types.find(t => t.startsWith('image/'));
+      if (imageType) {
+        const blob = await item.getType(imageType);
+        const ext = imageType.split('/')[1].replace('jpeg', 'jpg');
+        const filename = 'clipboard_' + Date.now() + '.' + ext;
+        const file = new File([blob], filename, { type: imageType });
+        closeModal('addFileModal');
+        await doUpload([file]);
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      toast(lang === 'ja' ? 'クリップボードに画像がありません' : 'No image in clipboard', 'error');
+    }
+  } catch(e) {
+    toast(lang === 'ja' ? 'クリップボードへのアクセスが許可されていません' : 'Clipboard access denied', 'error');
+  }
+}
+
+// ── PDF Upload ────────────────────────────────────────────────────────────────
+async function doUploadPdfs(files) {
+  if (!state.currentProject) { toast('プロジェクトを選択してください', 'error'); return; }
+  const SIZE_LIMIT = 1 * 1024 * 1024 * 1024;
+  for (const file of files) {
+    if (file.size > SIZE_LIMIT) {
+      toast(`${file.name}: ファイルサイズが1GBを超えています`, 'error');
+      continue;
+    }
+    toast(`PDF変換中: ${file.name}`, '');
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('dpi', 300);
+    const res = await fetch(
+      `/api/projects/${encodeURIComponent(state.currentProject)}/upload_pdf`,
+      { method: 'POST', body: fd }
+    );
+    const data = await res.json();
+    if (data.error) { toast(`エラー: ${data.error}`, 'error'); continue; }
+    await pollPdfProgress(data.job_id);
+    await loadPages(state.currentProject);
+    await loadProjects();
+    renderPageList();
+  }
+}
+
+async function pollPdfProgress(jobId) {
+  return new Promise(resolve => {
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/pdf_progress/${encodeURIComponent(jobId)}`);
+      const data = await res.json();
+      if (data.status === 'done') {
+        clearInterval(interval);
+        toast(data.message, 'success');
+        resolve();
+      } else if (data.status === 'error') {
+        clearInterval(interval);
+        toast(`PDF変換エラー: ${data.message}`, 'error');
+        resolve();
+      } else {
+        toast('PDF変換中...', '');
+      }
+    }, 1500);
+  });
+}
 
 // ── 校正辞書 ─────────────────────────────────────────────────────────────────
 let dictRules = [];
@@ -3284,142 +3385,8 @@ setInterval(loadProjects, 5000);
 document.getElementById('langBtn').textContent = lang === 'ja' ? 'EN' : 'JA';
 updateModals();
 
-// ── PDF対応フラグ（Flaskから注入） ──────────────────────────────────────────
-const PDF_ENABLED = {{ pdf_enabled | tojson }};
-if (PDF_ENABLED) {
-  // ドロップゾーンにPDF説明を表示
-  const pdfNote = document.getElementById('addFilePdfNote');
-  if (pdfNote) pdfNote.style.display = '';
-  const pdfBtn = document.getElementById('addFilePdfBtn');
-  if (pdfBtn) pdfBtn.style.display = '';
-  // ファイル選択をPDFも含める
-  const input = document.getElementById('addFileInput');
-  if (input) input.accept = '.png,.jpg,.jpeg,.tiff,.tif,.jp2,.bmp,.pdf';
-}
-
-// ── Add File Modal ────────────────────────────────────────────────────────────
-// ── Clipboard Paste ───────────────────────────────────────────────────────────
-async function pasteImageFromClipboard() {
-  try {
-    const items = await navigator.clipboard.read();
-    let found = false;
-    for (const item of items) {
-      const imageType = item.types.find(t => t.startsWith('image/'));
-      if (imageType) {
-        const blob = await item.getType(imageType);
-        const ext = imageType.split('/')[1].replace('jpeg', 'jpg');
-        const filename = 'clipboard_' + Date.now() + '.' + ext;
-        const file = new File([blob], filename, { type: imageType });
-        closeModal('addFileModal');
-        await doUpload([file]);
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      toast(lang === 'ja' ? 'クリップボードに画像がありません' : 'No image in clipboard', 'error');
-    }
-  } catch(e) {
-    toast(lang === 'ja' ? 'クリップボードへのアクセスが許可されていません' : 'Clipboard access denied', 'error');
-  }
-}
-
-function openAddFileModal() {
-  document.getElementById('addFileProgress').style.display = 'none';
-  document.getElementById('addFileProgress').textContent = '';
-  updateModals();
-  document.getElementById('addFileModal').classList.add('open');
-}
-
-async function handleAddFileDrop(e) {
-  e.preventDefault();
-  document.getElementById('addFileDropZone').style.borderColor = 'var(--border2)';
-  closeModal('addFileModal');
-  const files = Array.from(e.dataTransfer.files);
-  if (PDF_ENABLED) {
-    const images = files.filter(f => f.type.startsWith('image/'));
-    const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
-    if (images.length) await doUpload(images);
-    if (pdfs.length) await doUploadPdfs(pdfs);
-  } else {
-    await doUpload(files);
-  }
-}
-
-async function handleAddFileInput(e) {
-  const files = Array.from(e.target.files);
-  if (!files.length) return;
-  closeModal('addFileModal');
-  if (PDF_ENABLED) {
-    const images = files.filter(f => f.type.startsWith('image/'));
-    const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
-    if (images.length) await doUpload(images);
-    if (pdfs.length) await doUploadPdfs(pdfs);
-  } else {
-    await doUpload(files);
-  }
-  e.target.value = '';
-}
-
-async function handleAddPdfInput(e) {
-  const files = Array.from(e.target.files);
-  if (!files.length) return;
-  closeModal('addFileModal');
-  await doUploadPdfs(files);
-  e.target.value = '';
-}
-
-// ── PDF Upload ────────────────────────────────────────────────────────────────
-async function doUploadPdfs(files) {
-  if (!state.currentProject) { toast('プロジェクトを選択してください', 'error'); return; }
-  const SIZE_LIMIT = 1 * 1024 * 1024 * 1024; // 1GB
-
-  for (const file of files) {
-    if (file.size > SIZE_LIMIT) {
-      toast(`${file.name}: ファイルサイズが1GBを超えています`, 'error');
-      continue;
-    }
-    toast(`PDF変換中: ${file.name}`, '');
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('dpi', 300);
-
-    const res = await fetch(
-      `/api/projects/${encodeURIComponent(state.currentProject)}/upload_pdf`,
-      { method: 'POST', body: fd }
-    );
-    const data = await res.json();
-    if (data.error) {
-      toast(`エラー: ${data.error}`, 'error');
-      continue;
-    }
-    // 進捗ポーリング
-    await pollPdfProgress(data.job_id);
-    await loadPages(state.currentProject);
-    await loadProjects();
-    renderPageList();
-  }
-}
-
-async function pollPdfProgress(jobId) {
-  return new Promise(resolve => {
-    const interval = setInterval(async () => {
-      const res = await fetch(`/api/pdf_progress/${encodeURIComponent(jobId)}`);
-      const data = await res.json();
-      if (data.status === 'done') {
-        clearInterval(interval);
-        toast(data.message, 'success');
-        resolve();
-      } else if (data.status === 'error') {
-        clearInterval(interval);
-        toast(`PDF変換エラー: ${data.message}`, 'error');
-        resolve();
-      } else {
-        toast('PDF変換中...', '');
-      }
-    }, 1500);
-  });
-}
+// ── PDF対応フラグ ────────────────────────────────────────────────────────────
+const PDF_ENABLED = true;
 </script>
 </body>
 </html>
