@@ -114,15 +114,18 @@ On first launch, macOS may show a security warning. Use right-click -> Open to b
 ---
 
 ## Data Storage
+
+```
 ~/OCR_Projects/
 └── project-name/
-├── input/                   # Source images
-├── output/
-│   ├── *.json               # OCR results
-│   ├── *_overlay.json       # Edit data
-│   ├── crop/                # Cropped images
-│   └── correction_dict.json # Correction dictionary
-└── meta.json                # Project settings
+    ├── input/                   # Source images
+    ├── output/
+    │   ├── *.json               # OCR results
+    │   ├── *_overlay.json       # Edit data
+    │   ├── crop/                # Cropped images
+    │   └── correction_dict.json # Correction dictionary
+    └── meta.json                # Project settings
+```
 
 ---
 
@@ -261,15 +264,17 @@ ln -s ~/ocr-project-manager/OCR_Project_Manager.command ~/Desktop/OCR_Project_Ma
 
 ## プロジェクトデータの保存場所
 
+```
 ~/OCR_Projects/
 └── プロジェクト名/
-├── input/                   # 元画像
-├── output/
-│   ├── *.json               # OCR結果
-│   ├── *_overlay.json       # 編集データ
-│   ├── crop/                # クロップ画像
-│   └── correction_dict.json # 校正辞書
-└── meta.json                # プロジェクト設定
+    ├── input/                   # 元画像
+    ├── output/
+    │   ├── *.json               # OCR結果
+    │   ├── *_overlay.json       # 編集データ
+    │   ├── crop/                # クロップ画像
+    │   └── correction_dict.json # 校正辞書
+    └── meta.json                # プロジェクト設定
+```
 
 ---
 
