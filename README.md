@@ -73,8 +73,11 @@ Upload scanned pages, run OCR, review and correct results block by block, and ex
 
 ## Requirements
 
+**macOS and Linux only. Windows is not supported.**
+
 | Requirement | Notes |
 |---|---|
+| OS | macOS / Linux |
 | Python 3.8+ | |
 | NDLOCR-Lite | Install separately at ~/ndlocr-lite/ |
 | Flask / Pillow / pdf2image | Auto-installed by launcher |
@@ -222,8 +225,11 @@ License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
 
 ## 動作環境
 
+**macOS / Linux 向けです。Windows には対応していません。**
+
 | 必要なもの | 備考 |
 |---|---|
+| OS | macOS / Linux |
 | Python 3.8以上 | |
 | NDLOCR-Lite | ~/ndlocr-lite/ に別途インストール |
 | Flask / Pillow / pdf2image | ランチャーが自動インストール |
