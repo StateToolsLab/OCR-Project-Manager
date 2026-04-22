@@ -1050,6 +1050,58 @@ def pdf_info():
     finally:
         tmp_path.unlink(missing_ok=True)
 
+
+
+# ── 図表クロップ ──────────────────────────────────────────────────────────────
+@app.route("/api/projects/<project_name>/page/<filename>/crop", methods=["POST"])
+def crop_page_image(project_name, filename):
+    from PIL import Image, ImageOps
+    project_path = get_project_dir(project_name)
+    input_path = project_path / "input" / filename
+    if not input_path.exists():
+        return jsonify({"error": "Image not found"}), 404
+
+    data = request.json
+    x1 = float(data.get("x1", 0))
+    y1 = float(data.get("y1", 0))
+    x2 = float(data.get("x2", 0))
+    y2 = float(data.get("y2", 0))
+    title = data.get("title", "図").strip()
+    caption = data.get("caption", "").strip()
+
+    if not title:
+        return jsonify({"error": "タイトルを入力してください"}), 400
+
+    crop_dir = project_path / "output" / "crop"
+    crop_dir.mkdir(parents=True, exist_ok=True)
+
+    safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip() or "crop"
+    filename_out = f"{safe_title}.png"
+    out_path = crop_dir / filename_out
+    counter = 1
+    while out_path.exists():
+        filename_out = f"{safe_title}_{counter}.png"
+        out_path = crop_dir / filename_out
+        counter += 1
+
+    try:
+        img = Image.open(str(input_path))
+        try:
+            img = ImageOps.exif_transpose(img)
+        except Exception:
+            pass
+        box = (int(min(x1,x2)), int(min(y1,y2)), int(max(x1,x2)), int(max(y1,y2)))
+        img.crop(box).save(str(out_path), "PNG")
+        return jsonify({
+            "success": True,
+            "filename": filename_out,
+            "title": title,
+            "caption": caption,
+            "message": f"クロップ画像を保存しました: {filename_out}",
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     import webbrowser
     print("OCR Project Manager 起動中...")
