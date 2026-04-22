@@ -18,24 +18,17 @@ Upload scanned pages, run OCR, review and correct results block by block, and ex
 
 ---
 
-## What's New in v2
-
-- **PDF import** — upload a PDF and it is automatically converted to per-page images
-- **Image crop** — drag a region on any page to save a cropped image to `output/crop/`
-- **Smart launcher** — `start.py` checks v2 dependencies on startup; falls back to the stable v1 automatically if any are missing
-
----
-
 ## Features
 
 ### Project Management
 - Auto-generates folder structure per project
-- Edit project name and description
+- Edit project name, description, and writing direction (vertical / horizontal / mixed)
 - Delete projects
 
 ### Image Management
-- Drag & drop image upload (PNG / JPG, multiple files)
-- **PDF upload with automatic page conversion** *(v2)*
+- Drag and drop image upload (PNG / JPG, multiple files)
+- PDF upload with automatic page-by-page conversion
+- Paste images directly from clipboard
 - Auto-sort by filename on upload
 - Drag-and-drop page reordering
 - Delete individual pages
@@ -43,50 +36,49 @@ Upload scanned pages, run OCR, review and correct results block by block, and ex
 ### OCR Execution
 - Single-page OCR
 - Batch OCR (unprocessed pages only)
-- Safe output management that prevents filename conflicts
+- Per-block re-OCR with engine selection (Lite / Lite+)
 
-### Verification & Editing
+### Verification and Editing
 - Confidence score display with adjustable threshold
-- Visual overlay on images: orange = review required, green = confirmed, blue = selected
-- Adjustable overlay opacity slider
-- Block-level text editing
-- Confirmed flag per block (sets confidence to 1.00)
-- ¶ button to mark paragraph breaks at the block level
+- Visual overlay: orange = review required, green = confirmed
+- Adjustable overlay opacity
+- Block-level inline text editing
+- Confirmed flag per block
+- Paragraph break marker per block
 - Drag-and-drop block reordering
-- Direct input of target position number for quick block repositioning
-- Auto-renumbering of block IDs after reorder or delete
-- Draw a region on the image to manually add a text block with custom text
-- **Image crop to file** *(v2)* — save any region as a standalone image
+- Direct position input for quick block repositioning
+- Draw a region on the image to manually add a text block
+- Image crop — save any region as a standalone file
 - Delete individual blocks
 - Bulk actions: Check All / Check Above Threshold / Delete All
 
+### Correction Dictionary
+- Per-project correction rules (find and replace)
+- Apply corrections to all pages in one click
+- Suggestion analysis — detects recurring edit patterns and proposes new rules
+
 ### Text Preview Panel
-- Displays all block text for the current page combined at the bottom of the screen
-- One-click copy to clipboard
-- Reload button to refresh after block edits
+- Displays combined text for the current page
+- One-click clipboard copy
+- Reload button after block edits
 
 ### Export
-- Page range selection (choose start and end page)
-- Page separator insertion (use `{n}` to embed page number)
-- Paragraph break reflection (inserts separator before blocks marked with ¶)
-- TXT format (plain text)
-- JSON format (with coordinates and confidence scores)
-- Preview before export, with a Copy button to grab text directly without saving a file
+- Page range selection
+- Page separator with {n} for page number
+- Paragraph break reflection
+- TXT and JSON formats
+- Preview before export with Copy button
 
 ---
 
 ## Requirements
 
-| Requirement | Version | Note |
-|---|---|---|
-| Python | 3.8+ | |
-| Flask | 2.3+ | |
-| [NDLOCR-Lite](https://github.com/ndl-lab/ndlocr-lite) | latest | Install separately |
-| Pillow | any | v2 — image crop & EXIF correction |
-| pdf2image | any | v2 — PDF import |
-| poppler | any | v2 — PDF import (`brew install poppler` on Mac) |
-
-Pillow, pdf2image, and poppler are **optional**. If any are missing, the launcher opens a setup UI and starts v1 instead.
+| Requirement | Notes |
+|---|---|
+| Python 3.8+ | |
+| NDLOCR-Lite | Install separately at ~/ndlocr-lite/ |
+| Flask / Pillow / pdf2image | Auto-installed by launcher |
+| poppler | Mac: brew install poppler / Linux: apt install poppler-utils |
 
 ---
 
@@ -94,84 +86,61 @@ Pillow, pdf2image, and poppler are **optional**. If any are missing, the launche
 
 ### 1. Install NDLOCR-Lite
 
-```bash
-git clone https://github.com/ndl-lab/ndlocr-lite
-cd ndlocr-lite/ndlocr-lite-gui
+git clone https://github.com/ndl-lab/ndlocr-lite ~/ndlocr-lite
+cd ~/ndlocr-lite/ndlocr-lite-gui
 pip3 install -r ../requirements.txt
-```
-
-Verify:
-
-```bash
-PYTHONPATH=~/ndlocr-lite/src python3 ~/ndlocr-lite/ndlocr-lite-gui/main.py
-```
 
 ### 2. Install OCR Project Manager
-
-```bash
 git clone https://github.com/StateToolsLab/ocr-project-manager.git ~/ocr-project-manager
-cd ~/ocr-project-manager
-pip3 install flask
-```
-
-For v2 features (optional):
-
-```bash
-pip3 install Pillow pdf2image
-brew install poppler   # Mac
-# sudo apt install poppler-utils   # Linux
-```
 
 ### 3. Set execute permission (Mac)
-
-```bash
 chmod +x ~/ocr-project-manager/OCR_Project_Manager.command
-```
 
 ### 4. Create desktop shortcut (Mac)
-
-```bash
 ln -s ~/ocr-project-manager/OCR_Project_Manager.command ~/Desktop/OCR_Project_Manager.command
-```
 
 ---
 
 ## Usage
 
-Double-click `OCR_Project_Manager.command` on the desktop.
+Double-click OCR_Project_Manager.command on the desktop.
 
-The launcher checks your environment and opens the app automatically:
+The launcher checks your environment automatically:
+- All dependencies found: opens http://localhost:5050 directly
+- Any missing: shows a setup UI with install instructions
 
-- **All v2 dependencies found** → v2 starts directly at `http://localhost:5050`
-- **Any dependency missing** → a setup UI opens at `http://localhost:5051`, where you can install missing packages or start v1 instead
-
-On first launch, macOS may show a security warning. Use **right-click → Open** to bypass it.
+On first launch, macOS may show a security warning. Use right-click -> Open to bypass it.
 
 ---
 
 ## Data Storage
-
-```
 ~/OCR_Projects/
 └── project-name/
-    ├── input/         # Source images
-    ├── output/
-    │   ├── *.json     # OCR results
-    │   ├── *_overlay.json  # Edit data
-    │   └── crop/      # Cropped images (v2)
-    └── meta.json      # Project settings
-```
+├── input/                   # Source images
+├── output/
+│   ├── *.json               # OCR results
+│   ├── *_overlay.json       # Edit data
+│   ├── crop/                # Cropped images
+│   └── correction_dict.json # Correction dictionary
+└── meta.json                # Project settings
 
 ---
 
 ## Changelog
 
+### v3 (2026-04)
+- Correction dictionary (per-project rules, apply, suggestion analysis)
+- Per-block re-OCR with Lite / Lite+ engine selection
+- Writing direction setting per project
+- Clipboard paste for image upload
+- File upload modal with drag-and-drop zone
+- Pencil icon edit button next to project name
+- Bug fix: spurious folders no longer appear in project list
+
 ### v2 (2026-03)
-- PDF import with automatic page-by-page conversion
-- Image crop — save any page region as a standalone file
-- Smart launcher with v1 fallback
-- Blue highlight for selected block in overlay
-- Bug fix: overlay rect turning black after block reorder or selection change
+- PDF import with automatic page conversion
+- Image crop to file
+- Smart launcher with dependency check
 
 ### v1
 - Initial release
@@ -180,9 +149,8 @@ On first launch, macOS may show a security warning. Use **right-click → Open**
 
 ## Credits
 
-This tool uses [NDLOCR-Lite](https://github.com/ndl-lab/ndlocr-lite) by the National Diet Library of Japan.  
-License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-
+This tool uses [NDLOCR-Lite](https://github.com/ndl-lab/ndlocr-lite) by the National Diet Library of Japan.
+License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
 ---
 ---
 
@@ -196,24 +164,17 @@ License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 
 ---
 
-## v2 新機能
-
-- **PDFインポート** — PDFをアップロードするとページごとに画像へ自動変換
-- **画像クロップ** — ページ上をドラッグして指定範囲を `output/crop/` に保存
-- **スマートランチャー** — 起動時にv2依存ライブラリを自動チェック、不足時はv1で起動
-
----
-
 ## 主な機能
 
 ### プロジェクト管理
 - プロジェクト単位でフォルダを自動生成・管理
-- プロジェクト名・説明の編集
+- プロジェクト名・説明・筆記方向（縦書き／横書き／混在）の編集
 - プロジェクト単位での削除
 
 ### 画像管理
-- 画像のドラッグ&ドロップアップロード（PNG / JPG、複数可）
-- **PDFアップロード → ページ画像への自動変換** *(v2)*
+- 画像のドラッグ＆ドロップアップロード（PNG / JPG、複数可）
+- PDFアップロード → ページごとに画像へ自動変換
+- クリップボードからの画像貼り付け
 - アップロード時にファイル名順で自動ソート
 - ページリストでのドラッグによる並び替え
 - ページ単位での削除
@@ -221,50 +182,49 @@ License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 ### OCR実行
 - 1ページずつのOCR実行
 - 一括OCR実行（未処理ページのみ対象）
-- ファイル名衝突を防ぐ安全な出力管理
+- ブロック単位の再OCR（Lite / Lite+ エンジン選択可）
 
 ### 結果の検証・編集
-- OCR結果の信頼度スコア表示・閾値設定
-- 閾値以下のブロックをオレンジ、確認済みを緑、選択中を青で画像上にハイライト表示
-- ハイライトの透過度をスライダーで調整
-- ブロック単位のテキスト編集
-- ブロックの確認済みフラグ（チェックすると信頼度1.00に上書き）
-- ¶ボタンで段落区切りをブロック単位で設定
+- 信頼度スコア表示・閾値設定
+- 画像上にオーバーレイ表示（オレンジ=要確認、緑=確認済み）
+- 透過度スライダー
+- ブロック単位のインライン編集
+- 確認済みフラグ
+- 段落区切りマーカー（¶）をブロック単位に設定
 - ブロックのドラッグによる並び替え
 - 移動先番号を直接入力して移動
-- 並び替え・削除後にIDを自動で再採番
-- 画像上をドラッグして範囲指定→テキスト手動入力でブロックを追加
-- **画像クロップ保存** *(v2)* — 指定範囲を独立した画像ファイルとして保存
+- 画像上をドラッグして範囲指定 → テキスト手動入力でブロックを追加
+- 画像クロップ保存
 - ブロック単位の削除
 - 一括確認済み / 閾値以上を一括OK / 全て削除
 
+### 校正辞書
+- プロジェクト単位の補正ルール（置換前 → 置換後）
+- 全ページへのワンクリック適用
+- 候補提案 — 編集パターンを自動分析してルール候補を提示
+
 ### テキストプレビュー
-- 画面下部に現在ページの全テキストを結合表示
+- 現在ページの全テキストを結合表示
 - ワンクリックでクリップボードにコピー
-- ブロック編集後に再読込みボタンで更新
+- 再読込みボタン
 
 ### 統合出力
-- ページ範囲の指定（開始〜終了ページを選択）
-- ページ区切り文字の挿入（`{n}`でページ番号を埋め込み可）
-- 段落区切りの反映（¶設定されたブロックの前に区切りを挿入）
-- TXT形式（テキストのみ）
-- JSON形式（座標・信頼度付き）
-- 出力前にプレビューで確認、コピーボタンでそのままコピーも可能
+- ページ範囲指定
+- ページ区切り文字（{n}でページ番号埋め込み）
+- 段落区切りの反映
+- TXT形式 / JSON形式（座標・信頼度付き）
+- 出力前プレビュー＋コピーボタン
 
 ---
 
 ## 動作環境
 
-| ライブラリ | バージョン | 備考 |
-|---|---|---|
-| Python | 3.8以上 | |
-| Flask | 2.3以上 | |
-| [NDLOCR-Lite](https://github.com/ndl-lab/ndlocr-lite) | 最新 | 別途インストール必要 |
-| Pillow | 任意 | v2 — 画像クロップ・EXIF補正 |
-| pdf2image | 任意 | v2 — PDFインポート |
-| poppler | 任意 | v2 — PDFインポート（Mac: `brew install poppler`） |
-
-Pillow・pdf2image・popplerは **v2拡張機能のみ必要**です。不足している場合、ランチャーがセットアップ画面を表示し、v1として起動します。
+| 必要なもの | 備考 |
+|---|---|
+| Python 3.8以上 | |
+| NDLOCR-Lite | ~/ndlocr-lite/ に別途インストール |
+| Flask / Pillow / pdf2image | ランチャーが自動インストール |
+| poppler | Mac: brew install poppler / Linux: apt install poppler-utils |
 
 ---
 
@@ -272,84 +232,62 @@ Pillow・pdf2image・popplerは **v2拡張機能のみ必要**です。不足し
 
 ### 1. NDLOCR-Liteをインストール
 
-```bash
-git clone https://github.com/ndl-lab/ndlocr-lite
-cd ndlocr-lite/ndlocr-lite-gui
+git clone https://github.com/ndl-lab/ndlocr-lite ~/ndlocr-lite
+cd ~/ndlocr-lite/ndlocr-lite-gui
 pip3 install -r ../requirements.txt
-```
-
-動作確認：
-
-```bash
-PYTHONPATH=~/ndlocr-lite/src python3 ~/ndlocr-lite/ndlocr-lite-gui/main.py
-```
 
 ### 2. OCR Project Managerをインストール
-
-```bash
 git clone https://github.com/StateToolsLab/ocr-project-manager.git ~/ocr-project-manager
-cd ~/ocr-project-manager
-pip3 install flask
-```
-
-v2拡張機能を使う場合（任意）：
-
-```bash
-pip3 install Pillow pdf2image
-brew install poppler        # Mac
-# sudo apt install poppler-utils   # Linux
-```
 
 ### 3. 起動スクリプトに実行権限を付与（Mac）
-
-```bash
 chmod +x ~/ocr-project-manager/OCR_Project_Manager.command
-```
 
 ### 4. デスクトップにショートカットを作成（Mac）
-
-```bash
 ln -s ~/ocr-project-manager/OCR_Project_Manager.command ~/Desktop/OCR_Project_Manager.command
-```
 
 ---
 
 ## 起動方法
 
-デスクトップの `OCR_Project_Manager.command` をダブルクリック。
+デスクトップの OCR_Project_Manager.command をダブルクリック。
 
-起動時に環境を自動チェックします：
+起動時に依存ライブラリを自動チェックします：
+- 全て揃っている場合 → http://localhost:5050 で直接起動
+- 不足がある場合 → セットアップ画面でインストール案内
 
-- **v2依存ライブラリが全て揃っている場合** → v2が `http://localhost:5050` で直接起動
-- **不足がある場合** → セットアップ画面が `http://localhost:5051` で開き、インストール案内またはv1での起動を選択できます
-
-初回起動時はMacのセキュリティ警告が出ます。**右クリック→「開く」** で起動してください。
+初回起動時はMacのセキュリティ警告が出ます。右クリック→「開く」で起動してください。
 
 ---
 
 ## プロジェクトデータの保存場所
 
-```
 ~/OCR_Projects/
 └── プロジェクト名/
-    ├── input/              # 元画像
-    ├── output/
-    │   ├── *.json          # OCR結果
-    │   ├── *_overlay.json  # 編集データ
-    │   └── crop/           # クロップ画像（v2）
-    └── meta.json           # プロジェクト設定
-```
+├── input/                   # 元画像
+├── output/
+│   ├── *.json               # OCR結果
+│   ├── *_overlay.json       # 編集データ
+│   ├── crop/                # クロップ画像
+│   └── correction_dict.json # 校正辞書
+└── meta.json                # プロジェクト設定
 
 ---
 
 ## 更新履歴
 
+### v3（2026年4月）
+- 校正辞書（プロジェクト単位のルール管理・一括適用・候補提案）
+- ブロック単位の再OCR（Lite / Lite+ 選択可）
+- 筆記方向設定（縦書き／横書き／混在）
+- クリップボードからの画像貼り付け
+- ファイル追加モーダル（ドラッグ＆ドロップゾーン）
+- プロジェクト名横の鉛筆アイコン編集ボタン
+- バグ修正：非プロジェクトフォルダがリストに表示される問題
+
 ### v2（2026年3月）
 - PDFインポート（ページごとに自動変換）
 - 画像クロップ保存機能
-- スマートランチャー（v1フォールバック付き）
-- オーバーレイ選択ブロックの青ハイライト
-- バグ修正：ブロック並び替え・切り替え後にオーバーレイが黒くなる問題
+- スマートランチャー（依存チェック）
 
 ### v1
 - 初回リリース
@@ -358,5 +296,5 @@ ln -s ~/ocr-project-manager/OCR_Project_Manager.command ~/Desktop/OCR_Project_Ma
 
 ## クレジット
 
-OCRエンジンとして [NDLOCR-Lite](https://github.com/ndl-lab/ndlocr-lite)（国立国会図書館）を使用しています。  
-ライセンス：[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+OCRエンジンとして NDLOCR-Lite（国立国会図書館）を使用しています。
+ライセンス：CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
