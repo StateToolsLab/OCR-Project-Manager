@@ -93,14 +93,22 @@ git clone https://github.com/ndl-lab/ndlocr-lite ~/ndlocr-lite
 cd ~/ndlocr-lite/ndlocr-lite-gui
 pip3 install -r ../requirements.txt
 
-### 2. Install OCR Project Manager
-git clone https://github.com/StateToolsLab/ocr-project-manager.git ~/ocr-project-manager
+### 2. Clone OCR Project Manager
 
-### 3. Set execute permission (Mac)
-chmod +x ~/ocr-project-manager/OCR_Project_Manager.command
+```bash
+git clone https://github.com/StateToolsLab/OCR-Project-Manager.git
+cd OCR-Project-Manager
+```
 
-### 4. Create desktop shortcut (Mac)
-ln -s ~/ocr-project-manager/OCR_Project_Manager.command ~/Desktop/OCR_Project_Manager.command
+### 3. Set execute permission (first time only)
+
+```bash
+chmod +x install.command
+```
+
+### 4. Double-click install.command
+
+Installs required Python libraries and creates a desktop shortcut automatically.
 
 ---
 
@@ -245,14 +253,22 @@ git clone https://github.com/ndl-lab/ndlocr-lite ~/ndlocr-lite
 cd ~/ndlocr-lite/ndlocr-lite-gui
 pip3 install -r ../requirements.txt
 
-### 2. OCR Project Managerをインストール
-git clone https://github.com/StateToolsLab/ocr-project-manager.git ~/ocr-project-manager
+### 2. OCR Project Managerをクローン
 
-### 3. 起動スクリプトに実行権限を付与（Mac）
-chmod +x ~/ocr-project-manager/OCR_Project_Manager.command
+```bash
+git clone https://github.com/StateToolsLab/OCR-Project-Manager.git
+cd OCR-Project-Manager
+```
 
-### 4. デスクトップにショートカットを作成（Mac）
-ln -s ~/ocr-project-manager/OCR_Project_Manager.command ~/Desktop/OCR_Project_Manager.command
+### 3. インストールスクリプトに実行権限を付与（初回のみ）
+
+```bash
+chmod +x install.command
+```
+
+### 4. install.command をダブルクリック
+
+必要なPythonライブラリのインストールとデスクトップへのショートカット作成を自動で行います。
 
 ---
 
