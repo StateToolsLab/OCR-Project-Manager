@@ -5,6 +5,18 @@ echo "OCR Project Manager — インストーラー"
 echo "======================================"
 echo ""
 
+# 0. macOSバージョン確認
+OS_VER=$(sw_vers -productVersion)
+OS_MAJOR=$(echo "$OS_VER" | cut -d. -f1)
+OS_MINOR=$(echo "$OS_VER" | cut -d. -f2)
+if [[ "$OS_MAJOR" -lt 11 && "$OS_MINOR" -lt 15 ]]; then
+    echo "❌ macOS 10.15以降が必要です（現在: $OS_VER）"
+    echo "   お使いのmacOSはサポート対象外です。"
+    read -p "Enterで閉じる..."
+    exit 1
+fi
+echo "✅ macOS: $OS_VER"
+
 # 1. Homebrewの確認
 if ! command -v brew &> /dev/null; then
     echo "⚠ Homebrewが見つかりません。"
