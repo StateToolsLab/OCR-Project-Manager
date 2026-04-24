@@ -1,8 +1,7 @@
 #!/bin/bash
 # OCR Project Manager 起動スクリプト
-# このファイルをデスクトップに置いてダブルクリックで起動
 
-APP_DIR="$HOME/ocr-project-manager"
+APP_DIR="$HOME/OCR-Project-Manager"
 VENV="$APP_DIR/venv"
 PYTHON="$VENV/bin/python3"
 PIP="$VENV/bin/pip"
@@ -18,19 +17,13 @@ if [ ! -f "$PYTHON" ]; then
     fi
 fi
 
-# Flaskがなければインストール
+# 依存ライブラリがなければインストール
 if ! "$PYTHON" -c "import flask" 2>/dev/null; then
-    echo "Flaskをインストール中..."
-    "$PIP" install flask --quiet
-    if [ $? -ne 0 ]; then
-        echo "エラー: Flaskのインストールに失敗しました"
-        read -p "Enterで閉じる..."
-        exit 1
-    fi
-    echo "Flaskをインストールしました"
+    echo "ライブラリをインストール中..."
+    "$PIP" install flask Pillow pdf2image --quiet
 fi
 
 # アプリ起動
 echo "OCR Project Manager を起動します..."
 cd "$APP_DIR"
-exec "$PYTHON" start.py < /dev/null
+exec "$PYTHON" app.py < /dev/null
